@@ -1,0 +1,216 @@
+<defun name="parallel_reduce">
+  <in name="input_file" type="string" place="input_file"/>
+  <in name="output_dir" type="string" place="output_dir"/>
+
+  <in name="implementation0" type="string" place="implementation0"/>
+  <in name="julia_impl0" type="string" place="julia_impl0"/>
+  <in name="fname0" type="string" place="fname0"/>
+
+  <in name="implementation1" type="string" place="implementation1"/>
+  <in name="julia_impl1" type="string" place="julia_impl1"/>
+  <in name="fname1" type="string" place="fname1"/>
+
+  <in name="implementation2" type="string" place="implementation2"/>
+  <in name="julia_impl2" type="string" place="julia_impl2"/>
+  <in name="fname2" type="string" place="fname2"/>
+
+  <out name="output_file1" type="string" place="output_file1"/>
+  <out name="output_file2" type="string" place="output_file2"/>
+
+  <out name="sanity_gcd" type="string" place="sanity_gcd"/>
+
+  <net>
+    <place name="input_file" type="string"/>
+    <place name="output_dir" type="string"/>
+
+    <place name="partial_result" type="string"/>
+    <place name="Left" type="string"/>
+    <place name="Right" type="string"/>
+    
+    <place name="output_file1" type="string"/>
+    <place name="output_file2" type="string"/>
+    <place name="sanity_gcd" type="string"/>
+
+    <place name="count_init" type="unsigned long"/>
+    <place name="send_to_partial_result" type="string"/>
+
+    <place name="right_init" type="control">
+      <token><value>[]</value></token>
+    </place>
+    <place name="left_init" type="control"/>
+
+    <place name="implementation0" type="string"/>
+    <place name="julia_impl0" type="string"/>
+    <place name="fname0" type="string"/>
+
+    <place name="implementation1" type="string"/>
+    <place name="julia_impl1" type="string"/>
+    <place name="fname1" type="string"/>
+
+
+    <place name="implementation2" type="string"/>
+    <place name="julia_impl2" type="string"/>
+    <place name="fname2" type="string"/>
+
+    <transition name="generate_N">
+      <defun>
+        <in name="in_file" type="string"/>
+        <in name="output_dir" type="string"/>
+
+        <out name="partial_result" type="list"/>
+        <out name="count" type="unsigned long"/>
+        <out name="out_file2" type="string"/>
+
+        <in name="implementation" type="string"/>
+        <in name="julia_impl" type="string"/>
+        <in name="fname0" type="string"/>
+
+
+        <module name="generate_N_tokens" function="operation (in_file, partial_result, out_file2, count, implementation, julia_impl, fname0, output_dir)" require_function_unloads_without_rest="false">
+          <cinclude href="zeda/executor.hpp"/>
+          <cinclude href="iostream"/>
+          <cinclude href="string"/>
+          <cinclude href="vector"/>
+          <code><![CDATA[
+            std::vector<std::vector<std::string>> output = zeda::execute(implementation, julia_impl, fname0, output_dir, {in_file}, 2);
+            partial_result.assign(output[1].begin(), output[1].end());
+            out_file2 = output[0][0];
+            count = partial_result.size() - 1;
+          ]]></code>
+        </module>
+      </defun>
+
+      <connect-in port="in_file" place="input_file"/>
+      <connect-in port="output_dir" place="output_dir"/>
+
+      <connect-out port="count" place="count_init"/>
+      <connect-out port="out_file2" place="output_file2"/>
+      <connect-out-many port="partial_result" place="partial_result"/>
+
+      <connect-read port="implementation" place="implementation0"/>
+      <connect-read port="julia_impl" place="julia_impl0"/>
+      <connect-read port="fname0" place="fname0"/>
+    </transition>
+
+    <transition name="take_R">
+      <defun>
+        <inout name="initiate" type="control"/>
+        <inout name="value" type="string"/>
+	      <expression/>
+      </defun>
+      <connect-in port="initiate" place="right_init"/>
+      <connect-out port="initiate" place="left_init"/>
+      <connect-in port="value" place="partial_result"/>
+      <connect-out port="value" place="Right"/>
+    </transition>
+
+    <transition name="take_L">
+      <defun>
+        <inout name="initiate" type="control"/>
+        <inout name="value" type="string"/>
+	      <expression/>
+      </defun>
+      <connect-in port="initiate" place="left_init"/>
+      <connect-out port="initiate" place="right_init"/>
+      <connect-in port="value" place="partial_result"/>
+      <connect-out port="value" place="Left"/>
+    </transition>
+
+    <transition name="reduce">
+      <defun>
+        <in name="left" type="string"/>
+        <in name="right" type="string"/>
+
+      	<out name="return_value" type="string"/>
+        <out name="sanity" type="string"/>
+
+        <in name="implementation" type="string"/>
+        <in name="julia_impl" type="string"/>
+        <in name="fname1" type="string"/>
+
+        <in name="output_dir" type="string"/>
+
+        <module name="reduce_func" function="operation (left, right, sanity, return_value, implementation, julia_impl, fname1, output_dir)"
+        require_function_unloads_without_rest="false">
+        <cinclude href="zeda/executor.hpp"/>
+        <cinclude href="iostream"/>
+        <cinclude href="string"/>
+        <cinclude href="vector"/>
+        <code><![CDATA[
+          std::vector<std::vector<std::string>> output = zeda::execute(implementation, julia_impl, fname1, output_dir, {left, right}, 2);
+          sanity = output[0][0];
+          return_value = output[1][0];
+        ]]></code>
+        </module>
+
+      </defun>
+      <connect-in port="left" place="Left"/>
+      <connect-in port="right" place="Right"/>
+      <connect-in port="output_dir" place="output_dir"/>
+      <connect-out port="sanity" place="sanity_gcd"/>
+      <connect-out port="return_value" place="send_to_partial_result"/>
+
+      <connect-read port="implementation" place="implementation1"/>
+      <connect-read port="julia_impl" place="julia_impl1"/>
+      <connect-read port="fname1" place="fname1"/>
+    </transition>
+
+
+    <transition name="counter">
+      <defun>
+        <inout name="value" type="string"/>
+        <inout name="count" type="unsigned long"/>
+
+        <expression>
+          ${count} := ${count} - 1UL;
+        </expression>
+      </defun>
+      <connect-inout port="count" place="count_init"/>
+      <connect-in port="value" place="send_to_partial_result"/>
+      <connect-out port="value" place="partial_result"/>
+    </transition>
+
+
+    <transition name="finalise">
+      <defun>
+        <in name="final_result" type="string"/>
+        <in name="counter" type="unsigned long"/>
+
+        <out name="output_result" type="string"/>
+        <out name="sanity_check" type="string"/>
+
+        <in name="implementation" type="string"/>
+        <in name="julia_impl" type="string"/>
+        <in name="fname2" type="string"/>
+        <in name="output_dir" type="string"/>
+
+        <module name="final_output" function="operation (final_result, output_result, sanity_check, implementation, julia_impl, fname2, output_dir)" require_function_unloads_without_rest="false">
+          <cinclude href="zeda/executor.hpp"/>
+        <cinclude href="iostream"/>
+        <cinclude href="string"/>
+        <cinclude href="vector"/>
+        <code><![CDATA[
+          std::vector<std::vector<std::string>> output = zeda::execute(implementation, julia_impl, fname2, output_dir, {final_result}, 2);
+          sanity_check = output[0][0];
+          output_result = output[1][0];
+        ]]></code>
+      </module>
+
+
+    </defun>
+      <condition>
+        ${counter} :eq: 0UL
+      </condition>
+      <connect-in port="counter" place="count_init"/>
+      <connect-in port="final_result" place="Right"/>
+      <connect-in port="output_dir" place="output_dir"/>
+
+      <connect-out port="output_result" place="output_file1"/>
+      <connect-out port="sanity_check" place="output_file2"/>
+
+      <connect-read port="implementation" place="implementation2"/>
+      <connect-read port="julia_impl" place="julia_impl2"/>
+      <connect-read port="fname2" place="fname2"/>
+    </transition>
+  </net>
+</defun>
